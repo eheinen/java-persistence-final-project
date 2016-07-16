@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+ "-//Hibernate/Hibernate Mapping DTD//EN"
+ "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping>
+	<class name="com.adventure_time.entity.Medico" table="MEDICO">
+		
+		<id name="Id" type="int" column="id">
+			<generator class="native" />
+		</id>
+		<set name="consultas" cascade="all">
+			<key column="medico_id" />
+			<one-to-many class="com.adventure_time.entity.Consulta" />
+		</set>
+		<property name="Nome" column="nome" type="string" />
+		<property name="Telefone" column="telefone" type="string" />
+	</class>
+</hibernate-mapping>
