@@ -1,0 +1,6 @@
+/com/
+/hibernate.cfg.xml
+/Consulta.hbm.xml
+/Medico.hbm.xml
+/Paciente.hbm.xml
+/ehcache.xml

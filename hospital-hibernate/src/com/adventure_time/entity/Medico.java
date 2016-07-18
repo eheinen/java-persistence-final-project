@@ -1,16 +1,10 @@
 package com.adventure_time.entity;
 
-import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
+public class Medico {
 
-@Cache(region = "cache1", usage = CacheConcurrencyStrategy.READ_WRITE)
-public class Medico implements Serializable {
-
-	private static final long serialVersionUID = 1L;
 	private int id;
 	private String nome;
 	private String telefone;

@@ -1,73 +1,162 @@
 package com.adventure_time.main;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
+import org.hibernate.Criteria;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.criterion.Projections;
+import org.hibernate.stat.Statistics;
 
-import org.hibernate.Cache;
-
-import com.adventure_time.entity.Consulta;
 import com.adventure_time.entity.Medico;
-import com.adventure_time.entity.Paciente;
 import com.adventure_time.factory.Factory;
-import com.adventure_time.factory.ManageFactory;
 
 
 public class Main {
+	
+	private static Medico m1 = null;
+	private static Medico m2 = null;
+	
 	public static void main(String[] args) {
 
-		// Consultas:
-
-		ManageFactory ConsultaFactory = new ManageFactory(Consulta.class);
-
-		Date data1 = Date.from(Instant.now().plus(2, ChronoUnit.DAYS));
-		Date data2 = Date.from(Instant.now().plus(5, ChronoUnit.DAYS));
-		Date data3 = Date.from(Instant.now().plus(10, ChronoUnit.DAYS));
-		Consulta consulta1 = ConsultaFactory.insert(new Consulta(data1));
-		Consulta consulta2 = ConsultaFactory.insert(new Consulta(data2));
-		Consulta consulta3 = ConsultaFactory.insert(new Consulta(data3));
-
-		// Medico:
-
-		ManageFactory MedicoFactory = new ManageFactory(Medico.class);
-		//CacheManager cm = CacheManager.getInstance();
-		//cm.addCache(cache);
-
-		Medico m1 = new Medico("Medico 1", "1");
-		m1.getConsultas().add(consulta1);
+		System.out.println("Temp Dir: " + System.getProperty("java.io.tmpdir"));
 		
-		Medico m2 = new Medico("Medico 2", "2");
-		m2.getConsultas().add(consulta2);
+		// Inicializando as Sessions 
+		SessionFactory sessionFactory = Factory.getInstance();
+		Statistics stats = sessionFactory.getStatistics();
+		System.out.println("Stats enabled="+stats.isStatisticsEnabled());
+		stats.setStatisticsEnabled(true);
+		System.out.println("Stats enabled="+stats.isStatisticsEnabled());
 		
-		Medico m3 = new Medico("Medico 3", "3");
-		m3.getConsultas().add(consulta3);
+		Session session = sessionFactory.openSession();
+		Session otherSession = sessionFactory.openSession();
+		Transaction transaction = session.beginTransaction();
+		Transaction otherTransaction = otherSession.beginTransaction();
 		
-		Medico medico1 = MedicoFactory.insert(m1);
-		Medico medico2 = MedicoFactory.insert(m2);
-		Medico medico3 = MedicoFactory.insert(m3);
+		//System.out.println("\nTestando a primeira camada de cache: ");
+		//testFirstLevelCache(session, otherSession, m1, m2, stats, transaction, otherTransaction);
+		
+		//stats.clear();
+		
+		//System.out.println("\n\nTestando a segunda camada de cache: ");
+		//testSecondLevelCache(session, otherSession, m1, m2, stats);
+			
+		testConcorrency(session, otherSession, m1, m2, stats, transaction, otherTransaction);
+		
+		sessionFactory.close();		
+	}
+	
+	private static void testFirstLevelCache(Session session, Session otherSession, Medico m1, Medico m2, Statistics stats, Transaction transaction, Transaction otherTransaction){
+		int count = 1;
+		m1 = (Medico) session.load(Medico.class, 130);
+		printData(m1, stats, count++);
+		
+		m1 = (Medico) session.load(Medico.class, 130);
+		printData(m1, stats, count++);
+		
+		m1 = new Medico("Rafael", "12345");
+		session.save(m1);
+		
+		transaction.commit();
+		otherTransaction.commit();
+		
+		int id = getMaxId(session, Medico.class);
+		
+		m1 = (Medico) session.load(Medico.class, id);
+		printData(m1, stats, count++);
+		
+		m2 = (Medico) session.load(Medico.class, id);
+		printData(m2, stats, count++);
+		
+		m2 = (Medico) otherSession.load(Medico.class, id);
+		printData(m2, stats, count++);
+		
+	}
+	
+	private static void testSecondLevelCache(Session session, Session otherSession, Medico m1, Medico m2, Statistics stats){
+		int count = 1;
+		
+		//System.out.println("\nFoi feita a limpeza na primeira camada do cache para que a segunda seja utilizada:");
+		
+		session.clear();
+		
+		m1 = (Medico) session.load(Medico.class, 130);
+		printData(m1, stats, count++);
+		
+		m1 = (Medico) session.load(Medico.class, 131);
+		printData(m1, stats, count++);
+		
+		m1 = (Medico) otherSession.load(Medico.class, 130);
+		printData(m1, stats, count++);
+		
+		m1 = (Medico) session.load(Medico.class, 130);
+		printData(m1, stats, count++);
+		
+		m1 = (Medico) session.load(Medico.class, 131);
+		printData(m1, stats, count++);
+		
+		m1 = (Medico) otherSession.load(Medico.class, 130);
+		printData(m1, stats, count++);
+	}
+	
+	private static void testConcorrency(Session session, Session otherSession, Medico m1, Medico m2, Statistics stats, Transaction transaction, Transaction otherTransaction){
+		int count = 1;
+		
+		System.out.println("Cria o médico Almeida:");
+		m1 = new Medico("Almeida", "12345");
+		session.save(m1);		
+		transaction.commit();
+		
+		System.out.println(m1);
 
-		// Paciente:
+		System.out.println("Após o commit, pega o ID do Almeida:");		
+		int id = getMaxId(session, Medico.class);
+		
+		System.out.println("A sessão 1 pega o Almeida:");		
+		m1 = (Medico) session.load(Medico.class, id);
+		
+		System.out.println("A sessão 2 pega o Almeida:");
+		m2 = (Medico) otherSession.load(Medico.class, id);
+		
+		System.out.println("A sessão 1 altera o nome de Almeida para Diego:");
+		m1.setNome("Diego");
+		session.update(m1);
+		
+		System.out.println("A sessão 2 altera o nome de Almeida para Chico:");
+		m2.setNome("Chico");
+		otherSession.save(m2);		
+		
+		System.out.println("Commit na sessão 1:");
+		transaction = session.beginTransaction();
+		transaction.commit();
+		m1 = (Medico) session.load(Medico.class, id);
+		System.out.println(m1);
 
-		ManageFactory PacienteFactory = new ManageFactory(Paciente.class);
+		System.out.println("Commit na sessão 2:");
+		otherTransaction = otherSession.beginTransaction();
+		otherTransaction.commit();		
+		m2 = (Medico) otherSession.load(Medico.class, id);
+		System.out.println(m2);
+	}
+	
+	private static int getMaxId(Session session, Class classe){
+		Criteria criteria = session
+			    .createCriteria(classe)
+			    .setProjection(Projections.max("id"));
+			return (Integer)criteria.uniqueResult();
+	}
+	
+	private static void printStats(Statistics stats, int i) {
+		System.out.println("***** " + i + " *****");
+		System.out.println("Fetch Count = " + stats.getEntityFetchCount());
+		System.out.println("Second Level Hit Count = " + stats.getSecondLevelCacheHitCount());
+		System.out.println("Second Level Miss Count = "+ stats.getSecondLevelCacheMissCount());
+		System.out.println("Second Level Put Count = " + stats.getSecondLevelCachePutCount());
+		System.out.println("**********");
+	}
 
-		Paciente p1 = new Paciente("Paciente 1", "1");
-		p1.getConsultas().add(consulta1);
-		
-		Paciente p2 = new Paciente("Paciente 2", "2");
-		p2.getConsultas().add(consulta2);
-		
-		Paciente p3 = new Paciente("Paciente 3", "3");
-		p3.getConsultas().add(consulta3);
-		
-		Paciente paciente1 = PacienteFactory.insert(p1);
-		Paciente paciente2 = PacienteFactory.insert(p2);
-		Paciente paciente3 = PacienteFactory.insert(p3);
-		
-		MedicoFactory.list();
-		
-		
-
-		Cache cache = Factory.getInstance().getCache();
+	private static void printData(Medico medico, Statistics stats, int count) {
+		System.out.println(count + ":: Nome = " + medico.getNome() + ", Telefone = " + medico.getTelefone());
+		printStats(stats, count);
 	}
 
 }

@@ -43,13 +43,8 @@ public class ManageFactory {
 		List<T> objs = null;
 		try {
 			tx = session.beginTransaction();
-			Query query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
-			query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
-			query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
-			query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
-			query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
-			query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
-			query = session.createQuery("FROM " + classEntity.getSimpleName()).setCacheable(true);
+			Query query = session.createQuery("FROM " + classEntity.getSimpleName());
+			query.setCacheable(true);
 			objs = query.list();
 			tx.commit();
 		} catch (HibernateException e) {
